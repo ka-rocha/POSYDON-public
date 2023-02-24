@@ -468,7 +468,7 @@ def beaming(binary):
 
 
 def bondi_hoyle(binary, accretor, donor, idx=-1, wind_disk_criteria=True,
-                scheme='Hurley+2012'):
+                scheme='Hurley+2012', RNG=None):
     """Calculate the Bondi-Hoyle accretion rate of a binary.
 
     Parameters
@@ -503,6 +503,11 @@ def bondi_hoyle(binary, accretor, donor, idx=-1, wind_disk_criteria=True,
     .. [7] Kudritzki, R.-P., & Puls, J. 2000, ARA&A, 38, 613
 
     """
+    if RNG is None:
+        RNG = np.random.default_rng()
+    else:
+        assert isinstance(RNG, np.random.Generator)
+
     alpha = 1.5
     G = const.standard_cgrav * 1e-3     # 6.67428e-11 m3 kg-1 s-2
     Msun = const.Msun * 1e-3            # 1.988547e30  kg
@@ -580,7 +585,7 @@ def bondi_hoyle(binary, accretor, donor, idx=-1, wind_disk_criteria=True,
             pass
 
     n = np.sqrt((G * (m_acc + m) * Msun) / ((radius * Rsun)**3))
-    t0 = np.random.rand(len(sep)) * 2 * np.pi / n
+    t0 = RNG.rand(len(sep)) * 2 * np.pi / n
     E = newton(lambda x: x - ecc * np.sin(x) - n * t0,
                np.ones_like(sep) * np.pi / 2,
                maxiter=100)
@@ -620,7 +625,7 @@ def bondi_hoyle(binary, accretor, donor, idx=-1, wind_disk_criteria=True,
     return np.squeeze(mdot_acc)
 
 
-def rejection_sampler(x=None, y=None, size=1, x_lim=None, pdf=None):
+def rejection_sampler(x=None, y=None, size=1, x_lim=None, pdf=None, RNG=None):
     """Generate a sample from a 1d PDF using the acceptance-rejection method.
 
     Parameters
@@ -642,6 +647,11 @@ def rejection_sampler(x=None, y=None, size=1, x_lim=None, pdf=None):
         An array with `size` random numbers generated from the PDF.
 
     """
+    if RNG is None:
+        RNG = np.random.default_rng()
+    else:
+        assert isinstance(RNG, np.random.Generator)
+
     if pdf is None:
         assert np.all(y >= 0.0)
         try:
@@ -650,29 +660,29 @@ def rejection_sampler(x=None, y=None, size=1, x_lim=None, pdf=None):
             idxs = np.argsort(x)
             pdf = interp1d(x.take(idxs), y.take(idxs))
 
-        x_rand = np.random.uniform(x.min(), x.max(), size)
-        y_rand = np.random.uniform(0, y.max(), size)
+        x_rand = RNG.uniform(x.min(), x.max(), size)
+        y_rand = RNG.uniform(0, y.max(), size)
         values = x_rand[y_rand <= pdf(x_rand)]
         while values.shape[0] < size:
             n = size - values.shape[0]
-            x_rand = np.random.uniform(x.min(), x.max(), n)
-            y_rand = np.random.uniform(0, y.max(), n)
+            x_rand = RNG.uniform(x.min(), x.max(), n)
+            y_rand = RNG.uniform(0, y.max(), n)
             values = np.hstack([values, x_rand[y_rand <= pdf(x_rand)]])
     else:
-        x_rand = np.random.uniform(x_lim[0], x_lim[1], size)
-        pdf_max = max(pdf(np.random.uniform(x_lim[0], x_lim[1], 50000)))
-        y_rand = np.random.uniform(0, pdf_max, size)
+        x_rand = RNG.uniform(x_lim[0], x_lim[1], size)
+        pdf_max = max(pdf(RNG.uniform(x_lim[0], x_lim[1], 50000)))
+        y_rand = RNG.uniform(0, pdf_max, size)
         values = x_rand[y_rand <= pdf(x_rand)]
         while values.shape[0] < size:
             n = size - values.shape[0]
-            x_rand = np.random.uniform(x_lim[0], x_lim[1], n)
-            y_rand = np.random.uniform(0, pdf_max, n)
+            x_rand = RNG.uniform(x_lim[0], x_lim[1], n)
+            y_rand = RNG.uniform(0, pdf_max, n)
             values = np.hstack([values, x_rand[y_rand <= pdf(x_rand)]])
 
     return values
 
 
-def inverse_sampler(x, y, size=1):
+def inverse_sampler(x, y, size=1, RNG=None):
     """Sample from a PDF using the inverse-sampling method.
 
     Parameters
@@ -695,6 +705,11 @@ def inverse_sampler(x, y, size=1):
     # y should be above 0
     assert np.all(y >= 0.0)
 
+    if RNG is None:
+        RNG = np.random.default_rng()
+    else:
+        assert isinstance(RNG, np.random.Generator)
+
     # compute the area of each trapezoid
     segment_areas = 0.5 * (y[1:]+y[:-1]) * (x[1:]-x[:-1])
     # their cumulative sum denotes the scaled CDF at each x value
@@ -702,7 +717,7 @@ def inverse_sampler(x, y, size=1):
     total_area = cumsum_areas[-1]
 
     # start the inverse sampling
-    u = np.random.uniform(size=size)
+    u = RNG.uniform(size=size)
     # index of "bin" where each sampled value corresponds too
     u_indices = np.searchsorted(cumsum_areas, u * total_area)
     # the area that should be covered from the end of the previous bin
@@ -724,14 +739,14 @@ def inverse_sampler(x, y, size=1):
     if n_where_nan:
         assert np.all(dy_bins[where_nan] == 0)
         sample[where_nan] = x[u_indices][where_nan] + (
-            dx_bins[where_nan] * np.random.uniform(size=n_where_nan))
+            dx_bins[where_nan] * RNG.uniform(size=n_where_nan))
 
     # make sure that everything worked as expected
     assert np.all(np.isfinite(sample))
     return sample
 
 
-def histogram_sampler(x_edges, y, size=1):
+def histogram_sampler(x_edges, y, size=1, RNG=None):
     """Sample from an empirical PDF represented by a histogram.
 
     Parameters
@@ -751,11 +766,16 @@ def histogram_sampler(x_edges, y, size=1):
     """
     assert np.all(y >= 0.0)
 
+    if RNG is None:
+        RNG = np.random.default_rng()
+    else:
+        assert isinstance(RNG, np.random.Generator)
+
     # make sure that the lengths of the input arrays are correct
     n_bins = len(y)
     assert n_bins > 0 and len(x_edges) == n_bins + 1
     # first decide which will be the bin of each element in the sample
-    bin_sample = np.random.choice(n_bins, replace=True, p=y/sum(y), size=size)
+    bin_sample = RNG.choice(n_bins, replace=True, p=y/sum(y), size=size)
 
     sample = np.ones(size) * np.nan
 
@@ -763,7 +783,7 @@ def histogram_sampler(x_edges, y, size=1):
     bins_found = set(bin_sample)
     for bin_index in bins_found:
         in_this_bin = np.argwhere(bin_sample == bin_index)[:, 0]
-        sample[in_this_bin] = np.random.uniform(
+        sample[in_this_bin] = RNG.uniform(
             x_edges[bin_index], x_edges[bin_index+1], size=len(in_this_bin))
 
     assert(np.all(np.isfinite(sample)))
