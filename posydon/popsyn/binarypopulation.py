@@ -198,8 +198,8 @@ class BinaryPopulation:
             # Enforce the same metallicity & RNG for all grid steps
             for step_name, tup in self.population_properties.kwargs.items():
 
-                if (step_name in STEP_NAMES_LOADING_GRIDS) or
-                            (step_name in STEP_NAMES_USING_RNG):
+                if step_name in STEP_NAMES_LOADING_GRIDS \
+                    or step_name in STEP_NAMES_USING_RNG:
                     step_function, step_kwargs = tup # unpack params
 
                     if step_name in STEP_NAMES_LOADING_GRIDS:

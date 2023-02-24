@@ -159,8 +159,8 @@ class detached_step:
             do_gravitational_radiation=True,
             do_magnetic_braking=True,
             do_stellar_evolution_and_spin_from_winds=True,
-            RLO_orbit_at_orbit_with_same_am=False
-            RNG=None
+            RLO_orbit_at_orbit_with_same_am=False,
+            RNG=None,
     ):
         """Initialize the step. See class documentation for details."""
         self.metallicity = convert_metallicity_to_string(metallicity)
