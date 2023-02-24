@@ -160,6 +160,7 @@ class detached_step:
             do_magnetic_braking=True,
             do_stellar_evolution_and_spin_from_winds=True,
             RLO_orbit_at_orbit_with_same_am=False
+            RNG=None
     ):
         """Initialize the step. See class documentation for details."""
         self.metallicity = convert_metallicity_to_string(metallicity)
@@ -178,6 +179,7 @@ class detached_step:
         self.initial_mass = initial_mass
         self.rootm = rootm
         self.verbose = verbose
+        self.RNG = RNG
         if verbose:
             print(
                 dt,
@@ -1653,7 +1655,8 @@ class detached_step:
             if primary.co:
                 mdot_acc = np.atleast_1d(bondi_hoyle(
                     binary, primary, secondary, slice(-len(t), None),
-                    wind_disk_criteria=True, scheme='Kudritzki+2000'))
+                    wind_disk_criteria=True, scheme='Kudritzki+2000'),
+                    RNG=self.RNG)
                 primary.lg_mdot = np.log10(mdot_acc.item(-1))
                 primary.lg_mdot_history[len(primary.lg_mdot_history) - len(t)
                                         + 1:] = np.log10(mdot_acc[:-1])
