@@ -82,6 +82,7 @@ MODEL = {
     "use_core_masses": True,
     "approx_at_he_depletion": False,
     "verbose": False,
+    "RNG": np.random.default_rng(),
 }
 
 
@@ -246,6 +247,7 @@ class StepSN(object):
                  use_core_masses=MODEL['use_core_masses'],
                  approx_at_he_depletion=MODEL['approx_at_he_depletion'],
                  verbose=MODEL['verbose'],
+                 RNG=MODEL['RNG'],
                  **kwargs):
         """Initialize a StepSN instance."""
         # read kwargs to initialize the class
@@ -273,6 +275,7 @@ class StepSN(object):
             self.use_core_masses = use_core_masses
             self.approx_at_he_depletion = approx_at_he_depletion
             self.verbose = verbose
+            self.RNG = RNG
 
         if self.max_neutrino_mass_loss is None:
             self.max_neutrino_mass_loss = 0
@@ -1297,13 +1300,13 @@ class StepSN(object):
             if not binary.star_1.natal_kick_array[1] is None:
                 phi = binary.star_1.natal_kick_array[1]
             else:
-                phi = np.random.uniform(0, 2 * np.pi)
+                phi = self.RNG.uniform(0, 2 * np.pi)
                 binary.star_1.natal_kick_array[1] = phi
 
             if not binary.star_1.natal_kick_array[2] is None:
                 cos_theta = np.cos(binary.star_1.natal_kick_array[2])
             else:
-                cos_theta = np.random.uniform(-1, 1)
+                cos_theta = self.RNG.uniform(-1, 1)
                 binary.star_1.natal_kick_array[2] = np.arccos(cos_theta)
 
             # generate random point in the orbit where the kick happens
@@ -1314,7 +1317,7 @@ class StepSN(object):
                     raise ValueError(
                         "mean_anomaly must be a single float value.")
             else:
-                mean_anomaly = np.random.uniform(0, 2 * np.pi)
+                mean_anomaly = self.RNG.uniform(0, 2 * np.pi)
                 binary.star_1.natal_kick_array[3] = mean_anomaly
 
         elif binary.event == "CC2":
@@ -1388,13 +1391,13 @@ class StepSN(object):
             if not binary.star_2.natal_kick_array[1] is None:
                 phi = binary.star_2.natal_kick_array[1]
             else:
-                phi = np.random.uniform(0, 2 * np.pi)
+                phi = self.RNG.uniform(0, 2 * np.pi)
                 binary.star_2.natal_kick_array[1] = phi
 
             if not binary.star_2.natal_kick_array[2] is None:
                 cos_theta = np.cos(binary.star_2.natal_kick_array[2])
             else:
-                cos_theta = np.random.uniform(-1, 1)
+                cos_theta = self.RNG.uniform(-1, 1)
                 binary.star_2.natal_kick_array[2] = np.arccos(cos_theta)
 
             # generate random point in the orbit where the kick happens
@@ -1405,7 +1408,7 @@ class StepSN(object):
                     raise ValueError(
                         "mean_anomaly must be a single float value.")
             else:
-                mean_anomaly = np.random.uniform(0, 2 * np.pi)
+                mean_anomaly = self.uniform(0, 2 * np.pi)
                 binary.star_2.natal_kick_array[3] = mean_anomaly
 
         # The binary exist: flag_binary is True if the binary is not disrupted
