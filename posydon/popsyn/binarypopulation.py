@@ -61,14 +61,14 @@ ONELINE_MIN_ITEMSIZE = {'state_i': 30, 'state_f': 30,
                         'mass_transfer_case_i': 7, 'mass_transfer_case_f': 7,
                         'S1_SN_type': 5, 'S2_SN_type': 5}
 
-# BinaryPopulation will enforce a constant metallicity accross all steps that
-# load stellar or binary models by checked this list of steps.
+# BinaryPopulation will enforce a constant metallicity & RNG accross all steps
+# that load stellar or binary models by checked these lists of steps.
 STEP_NAMES_LOADING_GRIDS = [
     'step_HMS_HMS', 'step_CO_HeMS', 'step_CO_HMS_RLO', 'step_detached'
 ]
 
 STEP_NAMES_USING_RNG = [
-    'step_SN'
+    'step_SN', 'step_HMS_HMS', 'step_CO_HeMS', 'step_CO_HMS_RLO', 'step_detached',
 ]
 
 class BinaryPopulation:
@@ -195,24 +195,19 @@ class BinaryPopulation:
         """Load SimulationProperties steps but enforce consistent metallicity
         and RNG."""
         if not self.population_properties.steps_loaded:
-            # Enforce the same metallicity for all grid steps
+            # Enforce the same metallicity & RNG for all grid steps
             for step_name, tup in self.population_properties.kwargs.items():
 
-                if step_name in STEP_NAMES_LOADING_GRIDS:
+                if (step_name in STEP_NAMES_LOADING_GRIDS) or
+                            (step_name in STEP_NAMES_USING_RNG):
                     step_function, step_kwargs = tup # unpack params
-                    step_kwargs['metallicity'] = self.kwargs.get('metallicity', 1)
 
-                    # update the step kwargs, override metallicity
-                    modified_tup = (step_function, step_kwargs)
-                    self.population_properties.kwargs[step_name] = modified_tup
+                    if step_name in STEP_NAMES_LOADING_GRIDS:
+                        step_kwargs['metallicity'] = self.kwargs.get('metallicity', 1)
+                    if step_name in STEP_NAMES_USING_RNG:
+                        step_kwargs['RNG'] = self.RNG
 
-                # Note: will not work in the case where the same step name is in
-                # both STEP_NAMES_LOADING_GRIDS and STEP_NAMES_USING_RNG.
-                if step_name in STEP_NAMES_USING_RNG:
-                    step_function, step_kwargs = tup # unpack params
-                    step_kwargs['RNG'] = self.RNG
-
-                    # update the step kwargs, override metallicity
+                    # update the step kwargs, override metallicity, RNG
                     modified_tup = (step_function, step_kwargs)
                     self.population_properties.kwargs[step_name] = modified_tup
 
