@@ -67,6 +67,10 @@ STEP_NAMES_LOADING_GRIDS = [
     'step_HMS_HMS', 'step_CO_HeMS', 'step_CO_HMS_RLO', 'step_detached'
 ]
 
+STEP_NAMES_USING_RNG = [
+    'step_SN'
+]
+
 class BinaryPopulation:
     """Handle a binary star population."""
 
@@ -187,8 +191,9 @@ class BinaryPopulation:
 
             self._safe_evolve(**self.kwargs)
 
-    def _safe_evolve(self, **kwargs):
-        """Evolve binaries in a population, catching warnings/exceptions."""
+    def load_steps(self):
+        """Load SimulationProperties steps but enforce consistent metallicity
+        and RNG."""
         if not self.population_properties.steps_loaded:
             # Enforce the same metallicity for all grid steps
             for step_name, tup in self.population_properties.kwargs.items():
@@ -201,7 +206,24 @@ class BinaryPopulation:
                     modified_tup = (step_function, step_kwargs)
                     self.population_properties.kwargs[step_name] = modified_tup
 
+                # Note: will not work in the case where the same step name is in
+                # both STEP_NAMES_LOADING_GRIDS and STEP_NAMES_USING_RNG.
+                if step_name in STEP_NAMES_USING_RNG:
+                    step_function, step_kwargs = tup # unpack params
+                    step_kwargs['RNG'] = self.RNG
+
+                    # update the step kwargs, override metallicity
+                    modified_tup = (step_function, step_kwargs)
+                    self.population_properties.kwargs[step_name] = modified_tup
+
             self.population_properties.load_steps()
+        else:
+            raise ValueError("Do not load steps before population evolution!")
+
+    def _safe_evolve(self, **kwargs):
+        """Evolve binaries in a population, catching warnings/exceptions."""
+        # Load evolutionary steps
+        self.load_steps()
 
         indices = kwargs.get('indices', list(range(self.number_of_binaries)))
 
