@@ -86,6 +86,9 @@ class SyntheticPopulation:
             pop.evolve()
             met_prefix = f'{pop.kwargs["metallicity"]:.2e}_Zsun_'
             pop.save( met_prefix + 'population.h5' )
+            
+            # After evolution, ask python to free RAM
+            del pop
 
     @staticmethod
     def create_met_prefix(met):
