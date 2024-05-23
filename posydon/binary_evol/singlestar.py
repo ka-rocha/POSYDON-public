@@ -113,6 +113,10 @@ def properties_massless_remnant():
     PROPERTIES_MASSLESS["mass"] = 0.0
     return PROPERTIES_MASSLESS
 
+def convert_star_to_massless_remnant(star):
+    for key in STARPROPERTIES:
+        setattr(star, key, properties_massless_remnant()[key])
+    return star
 
 class SingleStar:
     """Class describing a single star."""
@@ -137,8 +141,10 @@ class SingleStar:
         # these quantities are updated in step_SN.py
         if not hasattr(self, 'natal_kick_array'):
             self.natal_kick_array = [None] * 4
-        if not hasattr(self, 'spin_orbit_tilt'):
-            self.spin_orbit_tilt = None
+        if not hasattr(self, 'spin_orbit_tilt_first_SN'):
+            self.spin_orbit_tilt_SN1 = None
+        if not hasattr(self, 'spin_orbit_tilt_second_SN'):
+            self.spin_orbit_tilt_SN2 = None
         if not hasattr(self, 'f_fb'):
             self.f_fb = None
         if not hasattr(self, 'SN_type'):
@@ -149,18 +155,18 @@ class SingleStar:
             self.m_disk_radiated = None
 
         # the following quantities are updated in mesa_step.py
-            
+
         # common envelope quantities
         for quantity in ['m_core_CE', 'r_core_CE']:
             for val in [1, 10, 30, 'pure_He_star_10']:
                 if not hasattr(self, f'{quantity}_{val}cent'):
                     setattr(self, f'{quantity}_{val}cent', None)
-                
+
         # core masses at He depletion
         for quantity in ['avg_c_in_c_core_at_He_depletion',
                          'co_core_mass_at_He_depletion']:
             setattr(self, quantity, None)
-                
+
         # core collapse quantities
         for MODEL_NAME in MODELS.keys():
             if not hasattr(self, MODEL_NAME):
@@ -171,24 +177,38 @@ class SingleStar:
         for item in STARPROPERTIES:
             getattr(self, item + '_history').append(getattr(self, item))
 
-    def restore(self, i=0, delete_history=True):
-        """Restore the object to the i-th state.
+    def restore(self, i=0, hooks=None):
+        """Restore the SingleStar() object to its i-th state, keeping the star history before the i-th state.
 
         Parameters
         ----------
         i : int
             Index of the star object history to reset the star to. By default
             i == 0, i.e. the star will be restored to its initial state.
+        hooks : list
+            List of extra hooks associated with the SimulationProperties() of the BinaryStar()
+            object containing this SingleStar(), if applicable. This parameter is 
+            automatically set when restoring a BinaryStar() object. 
         """
+        if hooks is None:
+            hooks = []
+            
         # Move current star properties to the ith step, using its history
         for p in STARPROPERTIES:
             setattr(self, p, getattr(self, '{}_history'.format(p))[i])
 
-        # Remove the obsolete history data
-        if delete_history:
-            for p in STARPROPERTIES:
-                setattr(self, p + '_history',
-                        getattr(self, p + '_history')[0:i + 1])
+            ## delete the star history after the i-th index
+            setattr(self, p + '_history', getattr(self, p + '_history')[0:i+1])
+        
+        ## if running with extra hooks, restore any extra hook columns
+        for hook in hooks:
+
+            if hasattr(hook, 'extra_star_col_names'):
+                extra_columns = getattr(hook, 'extra_star_col_names')
+                
+                for col in extra_columns:
+                    setattr(self, col, getattr(self, col)[0:i+1])  
+           
 
     def to_df(self, **kwargs):
         """Return history parameters from the star in a DataFrame.
@@ -248,9 +268,24 @@ class SingleStar:
         try:
             # shape of data_to_save (history columns , time steps)
             data_to_save = [getattr(self, key) for key in keys_to_save]
+
+            
+            col_lengths = [len(x) for x in data_to_save]
+            max_col_length = np.max(col_lengths)
+
+            # If a singlestar fails, usually history cols have diff lengths.
+            # This should append NAN to create even columns.
+            all_equal_length_cols = len(set(col_lengths)) == 1
+            if not all_equal_length_cols:
+                for col in data_to_save:
+                    col.extend([np.nan] * abs(max_col_length - len(col)))
+
+
             where_none = np.array(
                 [[True if var is None else False for var in column]
                  for column in data_to_save], dtype=bool)
+
+
         except AttributeError as err:
             raise AttributeError(
                 str(err) + "\n\nAvailable attributes in SingleStar: \n{}".
@@ -269,7 +304,7 @@ class SingleStar:
                         for name in keys_to_save]
 
         star_df = pd.DataFrame(star_data, columns=column_names)
-        
+
         # try to coerce data types automatically
         star_df = star_df.infer_objects()
 
@@ -364,6 +399,14 @@ class SingleStar:
         except AttributeError:
             star.metallicity = None
 
+        # add values at He depletion
+        for colname in run.final_values.dtype.names:
+            if "at_He_depletion" in colname:
+                if colname[0:3]=="S1_":
+                    attr = colname[3:]
+                    final_value = run.final_values[colname]
+                    setattr(star, attr, final_value)
+        
         star.state_history = [check_state_of_star(star, i=i, star_CO=False)
                               for i in range(n_steps)]
         star.state = star.state_history[-1]
