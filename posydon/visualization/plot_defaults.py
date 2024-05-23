@@ -18,8 +18,8 @@ __authors__ = [
 ]
 
 
-from matplotlib import checkdep_usetex
-
+from matplotlib import rcParams
+import shutil
 
 PLOT_PROPERTIES = {
     'show_fig': False,
@@ -39,7 +39,7 @@ PLOT_PROPERTIES = {
     'zmin': None,
     'zmax': None,
     'title': None,
-    'rcParams': {"text.usetex": checkdep_usetex(True),
+    'rcParams': {"text.usetex": True if shutil.which('latex') else False,
                  "font.family": "serif",
                  "font.sans-serif": ["Computer Modern Roman"]},
     'title_font_dict': {'fontsize': 10},
@@ -235,74 +235,141 @@ DEFAULT_MARKERS_COLORS_LEGENDS = {
         'L2_RLOF':
             ['^', 1, 'black', 'L2 RLOF'],
 
-        'caseA_from_star1':
-            ['s', 2, 'tab:blue', 'case A from star1'],
-        'caseA/B_from_star1':
-            ['s', 2, 'tab:green', 'case A/B from star1'],
-        'caseA/B/A_from_star1':
-            ['s', 2, 'lightgrey', 'case A/B/A from star1'],
-        'caseA/B/C_from_star1':
-            ['s', 2, 'yellow', 'case A/B/C from star1'],
-        'caseA/C_from_star1':
-            ['s', 2, 'yellow', 'case A/C from star1'],
-        'caseA/B/BB_from_star1':
-            ['s', 2, 'tab:red', 'case A/B/BB from star1'],
-        'caseA/B/C/BB_from_star1':
-            ['s', 2, 'tab:cyan', 'case A/B/C/BB from star1'],
-        'caseB_from_star1':
-            ['s', 2, 'tab:purple', 'case B from star1'],
-        'caseB/A_from_star1':
-            ['s', 2, 'tab:olive', 'case B/A from star1'],
-        'caseB/BB_from_star1':
-            ['s', 2, 'tab:pink', 'case B/BB from star1'],
-        'caseB/C/BB_from_star1':
-            ['s', 2, 'tab:gray', 'case B/C/BB from star1'],
-        'caseB/C_from_star1':
-            ['s', 2, 'tab:orange', 'case B/C from star1'],
-        'caseC_from_star1':
-            ['s', 2, 'black', 'case C from star1'],
-        'caseC/BB_from_star1':
-            ['s', 2, 'brown', 'case C/BB from star1'],
-
-        'caseA_from_star2':
-            ['o', 2, 'tab:blue', 'case A from star2'],
-        'caseA/B_from_star2':
-            ['o', 2, 'tab:green', 'case A/B from star2'],
-        'caseA/B/A_from_star2':
-            ['s', 2, 'lightgrey', 'case A/B/A from star2'],
-        'caseA/B/C_from_star2':
-            ['s', 2, 'yellow', 'case A/B/C from star2'],
-        'caseA/B/BB_from_star2':
-            ['o', 2, 'tab:red', 'case A/B/BB from star2'],
-        'caseA/B/C/BB_from_star2':
-            ['o', 2, 'tab:cyan', 'case A/B/C/BB from star2'],
-        'caseB_from_star2':
-            ['o', 2, 'tab:purple', 'case B from star2'],
-        'caseB/A_from_star2':
-            ['o', 2, 'tab:olive', 'case B/A from star2'],
-        'caseB/BB_from_star2':
-            ['o', 2, 'tab:pink', 'case B/BB from star2'],
-        'caseB/C/BB_from_star2':
-            ['o', 2, 'tab:gray', 'case B/C/BB from star2'],
-        'caseB/C_from_star2':
-            ['o', 2, 'tab:orange', 'case B/C from star2'],
-        'caseC_from_star2':
-            ['o', 2, 'black', 'case C from star2'],
-        'caseC/BB_from_star2':
-            ['s', 2, 'brown', 'case C/BB from star2'],
-
-        'caseBA_from_star1':
-            ['s', 2, 'tab:blue', 'case BA from star1'],
-        'caseBB_from_star1':
-            ['s', 2, 'tab:green', 'case BB from star1'],
-        'caseBA/BB_from_star1':
-            ['s', 2, 'tab:red', 'case BA/BB from star1'],
-
-        '_from_star1':
-            ['x', 1, 'black', 'unknown'],
-        '_from_star2':
-            ['x', 1, 'black', 'unknown'],
-
+        'case_A1':
+            ['s', 2, 'tab:blue', 'case A1'],
+        'case_A1/B1':
+            ['s', 2, 'tab:green', 'case A1/B1'],
+        'case_A1/B1/A1':
+            ['s', 2, 'lightgrey', 'case A1/B1/A1'],
+        'case_A1/B1/C1':
+            ['s', 2, 'yellow', 'case A1/B1/C1'],
+        'case_A1/C1':
+            ['s', 2, 'yellow', 'case A1/C1'],
+        'case_A1/B1/BB1':
+            ['s', 2, 'tab:red', 'case A1/B1/BB1'],
+        'case_A1/B1/C1/BB1':
+            ['s', 2, 'tab:cyan', 'case A1/B1/C1/BB1'],
+        'case_B1':
+            ['s', 2, 'tab:purple', 'case B1'],
+        'case_B1/BB1':
+            ['s', 2, 'tab:pink', 'case B1/BB1'],
+        'case_B1/C1/BB1':
+            ['s', 2, 'tab:gray', 'case B1/C1/BB1'],
+        'case_B1/C1':
+            ['s', 2, 'tab:orange', 'case B1/C1'],
+        'case_C1':
+            ['s', 2, 'black', 'case C1'],
+        'case_C1/BB1':
+            ['s', 2, 'brown', 'case C1/BB1'],
+        'case_BA1':
+            ['s', 2, 'tab:blue', 'case BA1'],
+        'case_BB1':
+            ['s', 2, 'tab:green', 'case BB1'],
+        'case_BA1/BB1':
+            ['s', 2, 'tab:red', 'case BA1/BB1'],
+            
+        'case_A2':
+            ['o', 2, 'tab:blue', 'case A2'],
+        'case_A2/B2':
+            ['o', 2, 'tab:green', 'case A2/B2'],
+        'case_A2/B2/A2':
+            ['o', 2, 'lightgrey', 'case A2/B2/A2'],
+        'case_A2/B2/C2':
+            ['o', 2, 'yellow', 'case A2/B2/C2'],
+        'case_A2/C2':
+            ['o', 2, 'yellow', 'case A2/C2'],
+        'case_A2/B2/BB2':
+            ['o', 2, 'tab:red', 'case A2/B2/BB2'],
+        'case_A2/B2/C2/BB2':
+            ['o', 2, 'tab:cyan', 'case A2/B2/C2/BB2'],
+        'case_B2':
+            ['o', 2, 'tab:purple', 'case B2'],
+        'case_B2/BB2':
+            ['o', 2, 'tab:pink', 'case B2/BB2'],
+        'case_B2/C2/BB2':
+            ['o', 2, 'tab:gray', 'case B2/C2/BB2'],
+        'case_B2/C2':
+            ['o', 2, 'tab:orange', 'case B2/C2'],
+        'case_C2':
+            ['o', 2, 'black', 'case C2'],
+        'case_C2/BB2':
+            ['o', 2, 'brown', 'case C2/BB2'],            
+        'case_BA2':
+            ['o', 2, 'tab:blue', 'case BA2'],
+        'case_BB2':
+            ['o', 2, 'tab:green', 'case BB2'],
+        'case_BA2/BB2':
+            ['o', 2, 'tab:red', 'case BA1/BB2'],
+            
+        'case_A1/A2':
+            ['>', 2, 'tab:blue', 'case A1/A2'],
+        'case_A1/A2/A1':
+            ['>', 2, 'tab:green', 'case A1/A2/A1'],
+        'case_A1/A2/B1':
+            ['>', 2, 'tab:gray', 'case A1/A2/B1'],
+        'case_A1/A2/B1/B2':
+            ['>', 2, 'tab:orange', 'case A1/A2/B1/B2'],
+        'case_A1/B1/BB1':
+            ['>', 2, 'tab:purple', 'case A1/B1/BB1'],
+        'case_A1/A2/B2':
+            ['>', 2, 'tab:red', 'case A1/A2/B2'],
+        'case_A1/B1/A2':
+            ['>', 2, 'tab:pink', 'case A1/B1/B2'],
+        'case_A1/B1/A2/B2':
+            ['>', 2, 'tab:olive', 'case A1/B1/A2/B2'],
+        'case_A1/B1/A2/B1/B2':
+            ['>', 2, 'yellow', 'case A1/B1/A2/B1/B2'],
+        'case_A1/B1/B2':
+            ['>', 2, 'brown', 'case A1/B1/B2'],
+        'case_A1/B1/B2/B1':
+            ['>', 2, 'black', 'case A1/B1/B2/B1'],
+        'case_A1/B2':
+            ['>', 2, 'tab:cyan', 'case A1/B1/C1/BB1'],
+        'case_B1/A2':
+            ['<', 2, 'tab:blue', 'case B1/A2'],
+        'case_B1/A2/B2':
+            ['<', 2, 'tab:green', 'case B1/A2/B2'],
+        'case_B1/B2':
+            ['<', 2, 'tab:gray', 'case B1/B2'],
+        'case_B1/B2/B1':
+            ['<', 2, 'tab:red', 'case B1/B2/B1'],
+        'case_B1/B2/BB1':
+            ['<', 2, 'brown', 'case B1/B2/BB1'],
+        'case_B1/B2/B1/B2/B1/B2/B1/B2/B1':
+            ['<', 2, 'tab:pink', 'case B1/B2/B1/B2/B1/B2/B1/B2/B1'],
+        'case_B1/B2/B1/C1':
+            ['<', 2, 'tab:olive', 'case B1/B2/B1/C1'],
+        'case_B1/B2/C1':
+            ['<', 2, 'tab:purple', 'case B1/B2/C1'],
+        'case_B1/B2/C1/BB1':
+            ['<', 2, 'black', 'case B1/B2/C1/BB1'],
+        'case_B1/C2':
+            ['<', 2, 'tab:cyan', 'case B1/C1'],
+        'case_B2/B1':
+            ['v', 2, 'tab:blue', 'case B2/B1'],
+        'case_B2/B1/C1':
+            ['v', 2, 'tab:green', 'case B2/B1/C1'],
+        'case_B2/C1':
+            ['v', 2, 'tab:orange', 'case B2/C1'],
+        'case_B1/A2/B2/C1':
+            ['v', 2, 'tab:red', 'case B1/A2/B2/C1'],
+        'case_A2/B1/B2':
+            ['v', 2, 'tab:pink', 'case A2/B1/B2'],
+        'case_A1/B1/B2/C1':
+            ['v', 2, 'tab:purple', 'case A1/B1/B2/C1'],
+        'case_A1/B1/B2/B1/C1':
+            ['v', 2, 'tab:olive', 'case A1/B1/B2/B1/C1'],
+        'case_A1/B1/A2/B2/C1':
+            ['v', 2, 'brown', 'case A1/B1/A2/B2/C1'],
+        'case_A1/B2/C1':
+            ['v', 2, 'yellow', 'case A1/B2/C1'],
+        'case_A1/A2/B2/C1':
+            ['v', 2, 'black', 'case A1/A2/B2/C1'],
+        'case_A2/A1':
+            ['v', 2, 'tab:gray', 'case A2/A1'],
+            
+        'None':
+            ['x', 1, 'tab:red', 'failed'],
     },
 
     'termination_flag_3': {
@@ -443,6 +510,10 @@ DEFAULT_MARKERS_COLORS_LEGENDS = {
             ['x', 1, 'red', 'Not converged'],
         'unknown':
             ['+', 1, 'green', 'unknown'],
+        'Reverse stable MT':    
+            ['s', 2, 'tab:olive', 'Stable reverse mass-transfer phase'],
+        'Reverse unstable MT':    
+            ['D', 1, 'tab:olive', 'Unstable reverse mass-transfer phase'],
         },
     'debug': {
         'terminate due to primary depleting carbon (inverse sn?)':
@@ -546,7 +617,7 @@ DEFAULT_MARKERS_COLORS_LEGENDS = {
     },
     'interpolation_class': {
         'initial_MT':
-            ['o', 2, 'tab:blue', 'initial_MT'],
+            ['.', 2, 'black', 'initial_MT'],
         'no_MT':
             ['o', 2, 'tab:pink', 'no_MT'],
         'not_converged':
@@ -555,6 +626,18 @@ DEFAULT_MARKERS_COLORS_LEGENDS = {
             ['o', 2, 'tab:orange', 'stable_MT'],
         'unstable_MT':
             ['o', 2, 'tab:purple', 'unstable_MT']
+    },
+    'interpolation_class_errors': {
+        'initial_MT':
+            ['.', 1, 'black', 'initial_MT'],
+        'no_MT':
+            ['o', 2, None, 'no_MT'],
+        'not_converged':
+            ['x', 1, 'tab:red', 'not_converged'],
+        'stable_MT':
+            ['s', 2, None, 'stable_MT'],
+        'unstable_MT':
+            ['D', 1, None, 'unstable_MT']
     },
     'SN_type': {
         'CCSN':
@@ -827,4 +910,90 @@ DEFAULT_LABELS = {
     'S2_f_beaming': [r'$f_\mathrm{beaming}$', r'$\log_{10}(f_\mathrm{beaming})$'],
     'S1_eta' : [r'$\eta$', r'$\log_{10}(\eta)$'],
     'S2_eta' : [r'$\eta$', r'$\log_{10}(\eta)$'],
+}
+
+# add core collapse MODEL variables
+for i in range(1, 11):
+    DEFAULT_LABELS[f'MODEL{i:02d}_mass'] = [r'$M_\mathrm{CO} \, [M_\odot]$',
+                                              r'$\log_{10}(M_\mathrm{CO} / M_\odot)$']
+    DEFAULT_LABELS[f'MODEL{i:02d}_spin'] = [r'$\chi_\mathrm{CO}$', r'$\log_{10}(\chi_\mathrm{CO})$']
+    DEFAULT_LABELS[f'MODEL{i:02d}_m_disk_accreted'] = [r'$M_\mathrm{disk, acc} \, [M_\odot]$',
+                                              r'$\log_{10}(M_\mathrm{disk, acc} / M_\odot)$']
+    DEFAULT_LABELS[f'MODEL{i:02d}_m_disk_radiated'] = [r'$M_\mathrm{disk, rad} \, [M_\odot]$',
+                                              r'$\log_{10}(M_\mathrm{disk, rad} / M_\odot)$']
+    
+
+# pre defined plottings
+PRE_SET_PLOTS = {
+    'combined_TF12' : {
+        'plot_dir_name' : 'TF12',
+        'term_flag' : 'combined_TF12'
+    },
+    'termination_flag_1' : {
+        'plot_dir_name' : 'TF1',
+        'zvar' : 'lg_mtransfer_rate',
+        'zmin' : -8,
+        'zmax' : -1
+    },
+    'termination_flag_2' : {
+        'plot_dir_name' : 'TF2',
+        'term_flag' : 'termination_flag_2'
+    },
+    'termination_flag_3' : {
+        'plot_dir_name' : 'TF3',
+        'term_flag' : 'termination_flag_3'
+    },
+    'termination_flag_4' : {
+        'plot_dir_name' : 'TF4',
+        'term_flag' : 'termination_flag_4'
+    },
+    'rl_relative_overflow_1' : {
+        'plot_dir_name' : 'debug_rl_1',
+        'zvar' : 'rl_relative_overflow_1',
+        'term_flag' : 'debug',
+        'zmin' : -0.5,
+        'zmax' : 0.5
+    },
+    'rl_relative_overflow_2' : {
+        'plot_dir_name' : 'debug_rl_2',
+        'zvar' : 'rl_relative_overflow_2',
+        'term_flag' : 'debug',
+        'zmin' : -0.5,
+        'zmax' : 0.5
+    },
+    'lg_mtransfer_rate' : {
+        'plot_dir_name' : 'debug_mt',
+        'zvar' : 'lg_mtransfer_rate',
+        'term_flag' : 'debug',
+        'zmin' : -8,
+        'zmax' : -1
+    },
+    # SN stuff
+    'S1_MODEL_DEFAULT_CO_type' : {
+        'zvar' : None,
+        'term_flag' : 'S1_MODEL01_CO_type'
+    },
+    'S1_MODEL_DEFAULT_SN_type' : {
+        'zvar' : None,
+        'term_flag' : 'S1_MODEL01_SN_type'
+    },
+    'S1_MODEL_DEFAULT_mass' : {
+        'zlog' : True,
+        'zmin' : 0.,
+        'zmax' : 2.
+    },
+    'S1_MODEL_DEFAULT_spin' : {
+        'zmin' : 0.,
+        'zmax' : 1.
+    },
+    'S1_MODEL_DEFAULT_m_disk_radiated' : {
+        'zmin' : 0.,
+        'zmax' : 3.
+    },
+    # interpolator stuff
+    'INTERP_ERROR_DEFAULT' : {
+        'term_flag' : None,
+        'zmin' : 0.,
+        'zmax' : 0.1
+    },
 }
