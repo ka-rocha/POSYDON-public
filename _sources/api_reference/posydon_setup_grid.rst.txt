@@ -1,0 +1,7 @@
+posydon\_setup\_grid module
+===========================
+
+.. automodule:: posydon_setup_grid
+   :members:
+   :undoc-members:
+   :show-inheritance:
