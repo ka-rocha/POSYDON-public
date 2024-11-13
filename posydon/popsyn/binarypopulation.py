@@ -20,7 +20,7 @@ __authors__ = [
     "Konstantinos Kovlakas <Konstantinos.Kovlakas@unige.ch>",
     "Devina Misra <devina.misra@unige.ch>",
     "Simone Bavera <Simone.Bavera@unige.ch>",
-    "Max Briel <max.briel@gmail.com>",
+    "Max Briel <max.briel@unige.ch>",
     "Matthias Kruckow <Matthias.Kruckow@unige.ch>",
 ]
 
@@ -30,7 +30,6 @@ __credits__ = ["Nam Tran <tranhn03@gmail.com>"]
 
 import pandas as pd
 import numpy as np
-import warnings
 import traceback
 import atexit
 import os
@@ -50,13 +49,34 @@ from posydon.popsyn.sample_from_file import (get_samples_from_file,
                                              get_kick_samples_from_file)
 from posydon.utils.common_functions import (orbital_period_from_separation,
                                             orbital_separation_from_period)
+from posydon.popsyn.normalized_pop_mass import initial_total_underlying_mass
+
 from posydon.popsyn.defaults import default_kwargs
 from posydon.popsyn.io import binarypop_kwargs_from_ini
 from posydon.utils.constants import Zsun
 from posydon.utils.posydonerror import POSYDONError,initial_condition_message
+from posydon.utils.posydonwarning import (Pwarn, Catch_POSYDON_Warnings)
 from posydon.utils.common_functions import set_binary_to_failed
 
-# 'event' usually 10 but 'detached (Integration failure)' can occur
+saved_ini_parameters = ['metallicity',
+                        "number_of_binaries",
+                   'binary_fraction_scheme',
+                   'binary_fraction_const',
+                   'star_formation',
+                   'max_simulation_time',
+                   'primary_mass_scheme',
+                   'primary_mass_min',                              
+                   'primary_mass_max',                                  
+                   'secondary_mass_scheme',
+                   'secondary_mass_min',
+                   'secondary_mass_max',
+                   'orbital_scheme',
+                   'orbital_period_scheme',
+                   'orbital_period_min',
+                   'orbital_period_max',
+                   'eccentricity_scheme']
+
+
 HISTORY_MIN_ITEMSIZE = {'state': 30, 'event': 25, 'step_names': 21,
                         'S1_state': 31, 'S2_state': 31,
                         'mass_transfer_case': 16,
@@ -101,7 +121,6 @@ class BinaryPopulation:
         for key, arg in kwargs.items():
             self.kwargs[key] = arg
         self.number_of_binaries = self.kwargs.get('number_of_binaries')
-
         self.population_properties = self.kwargs.get('population_properties',
                                                      SimulationProperties())
         atexit.register(lambda: BinaryPopulation.close(self))
@@ -109,6 +128,12 @@ class BinaryPopulation:
 
         # grab all metallicities in population or use single metallicity
         self.metallicities = self.kwargs.get('metallicities', [self.metallicity])
+
+        # force the metallicity on to the simulation properties
+        for key in STEP_NAMES_LOADING_GRIDS:
+            if key in self.population_properties.kwargs:
+                self.population_properties.kwargs[key][1].update({'metallicity': self.metallicity})
+                        
 
         self.population_properties.max_simulation_time = self.kwargs.get(
             'max_simulation_time')  # years
@@ -291,22 +316,45 @@ class BinaryPopulation:
                 binary = self.manager.generate(index=index, **self.kwargs)
             binary.properties = self.population_properties
 
-            with warnings.catch_warnings(record=True) as w:
+            # catch POSYDON warnings: record them to be possibly printed at
+            # then and of the "with" context; use a new registry for this
+            # context instead of the global one
+            with Catch_POSYDON_Warnings(record=True, own_registry=True) as cpw:
+                       
                 try:
                     binary.evolve()
+
                 except POSYDONError as posydon_error:
                     set_binary_to_failed(binary)
+                    binary.traceback = traceback.format_exc()
+
                     if self.kwargs.get("error_checking_verbose", False):
                         posydon_error.add_note(initial_condition_message(binary))
                         traceback.print_exception(posydon_error)
+
                 except Exception as e:
                     set_binary_to_failed(binary)
+                    binary.traceback = traceback.format_exc()
+
                     e.add_note(initial_condition_message(binary))
                     traceback.print_exception(e)
-                if len(w) > 0:
-                    warnings.simplefilter("always")
-                    binary.warning_message = [x.message for x in w]
 
+                # record if there were warnings caught during the binary
+                # evolution, this is needed to update the WARNINGS column in
+                # the oneline dataframe; this will only be updated if POSYDON
+                # warnings occur, NOT general python warnings      
+                if cpw.got_called():
+                    binary.warnings = True
+                
+                # if the user wants to print all POSYDON warnings to stderr
+                # (warnings_verbose=True), no action is needed, because it will
+                # be printed at the end of the "with" context; to avoid the
+                # printing clear the warnings cache before the end of the
+                # context
+                if not self.kwargs.get("warnings_verbose", False):
+                    cpw.reset_cache()
+
+        
             if breakdown_to_df:
                 self.manager.breakdown_to_df(binary, **self.kwargs)
 
@@ -420,8 +468,8 @@ class BinaryPopulation:
             if os.path.isdir(absolute_filepath):
                 file_name = 'backup_save_pop_data.h5'
                 file_path = os.path.join(dir_name, file_name)
-                warnings.warn('The provided path is a directory - saving '
-                              'to {0} instead.'.format(file_path), Warning)
+                Pwarn('The provided path is a directory - saving '
+                              'to {0} instead.'.format(file_path), "ReplaceValueWarning")
 
             self.combine_saved_files(absolute_filepath, tmp_files, **kwargs)
 
@@ -447,7 +495,7 @@ class BinaryPopulation:
         history_cols = pd.read_hdf(file_names[0], key='history').columns
         oneline_cols = pd.read_hdf(file_names[0], key='oneline').columns
 
-        history_tmp = pd.read_hdf(file_names[0], key='history')
+        #history_tmp = pd.read_hdf(file_names[0], key='history')
 
         history_min_itemsize = {key: val for key, val in
                                 HISTORY_MIN_ITEMSIZE.items()
@@ -458,19 +506,62 @@ class BinaryPopulation:
         mode = kwargs.get('mode', 'a')
         complib = kwargs.get('complib', 'zlib')
         complevel = kwargs.get('complevel', 9)
-
+        
+        
         with pd.HDFStore(absolute_filepath, mode=mode, complevel=complevel, complib=complib) as store:
+            simulated_mass = 0.0
+            simulated_mass_single = 0.0
+            simulated_mass_binaries = 0.0
+            number_of_systems=0
+            
             for f in file_names:
                 # strings itemsize set by first append max value,
                 # which may not be largest string
                 try:
                     store.append('history', pd.read_hdf(f, key='history'),
                                  min_itemsize=history_min_itemsize)
-                    store.append('oneline', pd.read_hdf(f, key='oneline'),
+                    
+                    oneline = pd.read_hdf(f, key='oneline')
+                    
+                    # split weight between single and binary stars
+                    mask = oneline["state_i"] == "initially_single_star"
+                    filtered_data_single = oneline[mask]
+                    filtered_data_binaries = oneline[~mask]
+                    
+                    simulated_mass_binaries += np.nansum(filtered_data_binaries[["S1_mass_i", "S2_mass_i"]].to_numpy())
+                    simulated_mass_single += np.nansum(filtered_data_single[["S1_mass_i"]].to_numpy())
+                    simulated_mass = simulated_mass_single + simulated_mass_binaries
+                       
+                    if 'metallicity' not in oneline.columns:
+                        met_df = pd.DataFrame(data={'metallicity': [self.metallicity] * len(oneline)}, index=oneline.index)
+                        oneline = pd.concat([oneline, met_df], axis=1)
+                    
+                    number_of_systems += len(oneline)
+                    
+                    store.append('oneline', oneline,
                                  min_itemsize=oneline_min_itemsize)
-                    os.remove(f)
+                    
                 except Exception:
                     print(traceback.format_exc(), flush=True)
+        
+            # store population metadata
+            tmp_df = pd.DataFrame()
+            for c in saved_ini_parameters:
+                tmp_df[c] = [self.kwargs[c]]
+            store.append('ini_parameters', tmp_df)
+            
+            tmp_df = pd.DataFrame(
+                index=[self.metallicity],
+                data={'simulated_mass': simulated_mass,
+                      'simulated_mass_single': simulated_mass_single,
+                      'simulated_mass_binaries': simulated_mass_binaries,
+                      'number_of_systems': number_of_systems})
+            tmp_df.index.name = 'metallicity'
+            store.append('mass_per_metallicity', tmp_df)
+        
+        # only remove the files once they've been written to the new file
+        for f in file_names:
+            os.remove(f)
 
     def close(self):
         """Close loaded h5 files from SimulationProperties."""
@@ -521,7 +612,7 @@ class PopulationManager:
         self.oneline_dfs = []
 
         if (('read_samples_from_file' in self.kwargs) and
-            (self.kwargs['read_samples_from_file']!='')):
+            (self.kwargs['read_samples_from_file'] != '')):
             self.binary_generator = BinaryGenerator(\
                                      sampler=get_samples_from_file, **kwargs)
         else:
@@ -531,6 +622,7 @@ class PopulationManager:
         self.entropy = self.binary_generator.entropy
 
         if file_name:
+            self.store_file = file_name
             self.store_file = file_name
 
     def append(self, binary):
@@ -647,6 +739,10 @@ class PopulationManager:
             If true, restore binaries back to initial conditions.
 
         """
+        # check if numpy64, since where does not support this
+        if isinstance(indices, np.int64):
+            indices = int(indices)
+
         if where is None:
             if indices is None:
                 raise ValueError("You must specify either the binary indices or a query string "
@@ -659,7 +755,7 @@ class PopulationManager:
         with pd.HDFStore(self.store_file, mode='r') as store:
             hist = store.select(key='history', where=query_str)
             oneline = store.select(key='oneline', where=query_str)
-
+        
         binary_holder = []
         for i in np.unique(hist.index):
             binary = BinaryStar.from_df(
@@ -729,11 +825,11 @@ class PopulationManager:
 
         with pd.HDFStore(fname, mode=mode, complevel=complevel, complib=complib) as store:
             history_df = self.to_df(**kwargs)
-            store.append('history', history_df, data_columns=True)
+            store.append('history', history_df)
 
             online_df = self.to_oneline_df(**kwargs)
-            store.append('oneline', online_df, data_columns=True)
-
+            store.append('oneline', online_df)
+        
         return
 
 
@@ -822,7 +918,7 @@ class BinaryGenerator:
         indices = np.arange(self._num_gen, self._num_gen+N_binaries, 1)
         
         # kicks
-        if 'read_samples_from_file' in kwargs:
+        if (('read_samples_from_file' in kwargs) and (kwargs['read_samples_from_file'] != '')):
             kick1, kick2 = get_kick_samples_from_file(**kwargs)
         else:
             if 'number_of_binaries' in kwargs:

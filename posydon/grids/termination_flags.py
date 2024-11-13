@@ -23,19 +23,20 @@ __authors__ = [
 
 import os
 import gzip
-import warnings
 import numpy as np
 
 from posydon.utils.common_functions import (
     infer_star_state, cumulative_mass_transfer_flag, infer_mass_transfer_case
 )
 from posydon.utils.limits_thresholds import (
-    RL_RELATIVE_OVERFLOW_THRESHOLD, LG_MTRANSFER_RATE_THRESHOLD
+    RL_RELATIVE_OVERFLOW_THRESHOLD, LG_MTRANSFER_RATE_THRESHOLD,
+    MIN_COUNT_INITIAL_RLO_BOUNDARY
 )
 from posydon.visualization.combine_TF import (
     TF1_POOL_STABLE, TF1_POOL_UNSTABLE, TF1_POOL_INITIAL_RLO, TF1_POOL_ERROR,
     TF2_POOL_NO_RLO, TF2_POOL_INITIAL_RLO
 )
+from posydon.utils.posydonwarning import Pwarn
 
 
 # variables needed for inferring star states
@@ -125,14 +126,17 @@ def get_mass_transfer_flag(binary_history, history1, history2,
     rel2 = binary_history["rl_relative_overflow_2"]
     rate = binary_history["lg_mtransfer_rate"]
 
+    # warning: all changes in the following lines need to be aligned with the
+    # function posydon.utils.common_functions.infer_mass_transfer_case
     where_rl_rel_1 = rel1 > RL_RELATIVE_OVERFLOW_THRESHOLD
     where_rl_rel_2 = rel2 > RL_RELATIVE_OVERFLOW_THRESHOLD
+    where_rl_rel_1_dominates = rel1 >= rel2
+    where_rl_rel_2_dominates = rel1 < rel2
     if np.any(where_rl_rel_1 & where_rl_rel_2):
         return "contact_during_MS"
-
     where_transfer = rate > LG_MTRANSFER_RATE_THRESHOLD
-    where_rlof_1 = where_rl_rel_1 & where_transfer
-    where_rlof_2 = where_rl_rel_2 & where_transfer
+    where_rlof_1 = (where_rl_rel_1 | where_transfer) & where_rl_rel_1_dominates
+    where_rlof_2 = (where_rl_rel_2 | where_transfer) & where_rl_rel_2_dominates
 
     if not np.any(where_rlof_1) and not np.any(where_rlof_2):
         return "no_RLOF"
@@ -201,9 +205,9 @@ def check_state_from_history(history, mass, model_index=-1):
 
     for col in STAR_HISTORY_VARIABLES:
         if col not in history.dtype.names:
-            warnings.warn(
-                "The data column {} is not in the history file. It is needed "
-                "for the determination of the star state.".format(col))
+            raise KeyError("The data column {} is not in the ".format(col)+\
+                           "history file. It is needed for the determination"+\
+                           " of the star state.")
 
     variables_to_pass = {varname: history[varname][model_index]
                          for varname in STAR_HISTORY_VARIABLES}
@@ -322,12 +326,33 @@ def get_detected_initial_RLO(grid):
 
 
 def get_nearest_known_initial_RLO(mass1, mass2, known_initial_RLO):
+    """Find the nearest system of initial RLO in the known ones
+    
+    Parameters
+    ----------
+    mass1 : float
+        star_1_mass of the run to check.
+    mass2 : float
+        star_2_mass of the run to check.
+    known_initial_RLO : list of dict
+        Boundary to apply.
+    
+    Retruns
+    -------
+    dict
+        Containing the key parameters (e.g. initial masses, period) of the
+        nearest initial RLO run.
+    """
     #default values
     d2min = 1.0e+99
     nearest = {"star_1_mass": 0.0,
                "star_2_mass": 0.0,
                "period_days": 0.0,
               }
+    if len(known_initial_RLO)<MIN_COUNT_INITIAL_RLO_BOUNDARY:
+        Pwarn("Don't apply initial RLO boundary because of too few data points"
+              " in there.","InappropriateValueWarning")
+        return nearest
     for sys in known_initial_RLO:
         #search for a known system with closest mass combination
         #use distance^2=(delta mass1)^2+(delta mass2)^2

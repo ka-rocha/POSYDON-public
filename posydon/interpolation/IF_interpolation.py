@@ -173,11 +173,11 @@ __authors__ = [
 
 import os
 import pickle
-import warnings
 from datetime import date
 # POSYDON
 from posydon.grids.psygrid import PSyGrid
 from posydon.interpolation.data_scaling import DataScaler
+from posydon.utils.posydonwarning import Pwarn
 # Maths
 import numpy as np
 # Machine Learning
@@ -359,7 +359,7 @@ class IFInterpolator:
 class BaseIFInterpolator:
     """Class handling the initial-final interpolation for POSYDON."""
 
-    def __init__(self, grid=None, in_keys=None, out_keys=None, in_scaling=None,
+    def __init__(self, grid=None, in_keys=None, out_keys=None, out_nan_keys=None, in_scaling=None,
                  out_scaling=None, filename=None, interp_method="linear",
                  interp_classes=None, class_method="kNN",
                  c_keys=None, c_key=None):
@@ -379,6 +379,9 @@ class BaseIFInterpolator:
         out_keys : list of strings
             The keys for which the interpolator is supposed to provide values,
             by default all keys are used.
+        out_nan_keys : list of strings
+            The keys for which the interpolator is supposed to provide values,
+            but are all nan in the grid.
         in_scaling : list of strings
             The scalings for the input keys, by default these scalings are
             optimized through Monte Carlo Cross Validation.
@@ -407,7 +410,7 @@ class BaseIFInterpolator:
 
         """
         self.in_keys, self.out_keys = in_keys, out_keys
-        self.out_nan_keys = []
+        self.out_nan_keys = out_nan_keys
         self.in_scaling, self.out_scaling = in_scaling, out_scaling
         self.n_in, self.n_out = 0, 0
         self.in_scalers, self.out_scalers = [], []
@@ -418,6 +421,13 @@ class BaseIFInterpolator:
 
         self.interp_method = interp_method
         self.interpolator = None
+        ignored_classes = ['not_converged', 'ignored_no_BH', 'ignored_no_RLO', 'initial_MT']
+        self.valid_classes = np.unique(grid.final_values["interpolation_class"]).tolist()
+        # A list of mass-transfer classes that are kept for interpolations (exclude e.g. 'not_converged' class).
+        for i in ignored_classes:
+            while(i in self.valid_classes):
+                self.valid_classes.remove(i)
+        
         if interp_classes is not None:
             if not isinstance(interp_classes, list):
                 raise ValueError("interp_classes must be a list of "
@@ -450,6 +460,7 @@ class BaseIFInterpolator:
                     and (type(grid.final_values[key][0]) != np.str_)
                     and any(~np.isnan(grid.final_values[key]))
                 ]
+            if self.out_nan_keys is None:
                 self.out_nan_keys = [
                     key for key in grid.final_values.dtype.names
                     if type(grid.final_values[key][0]) != np.str_
@@ -467,7 +478,7 @@ class BaseIFInterpolator:
             self.interp_in_q = self._interpIn_q(grid)
             self.XT, self.YT = self._grid2array(grid)
             self.valid = self._setValid(
-                grid.final_values[self.c_key], self.XT)
+                grid.final_values["interpolation_class"], self.XT)
             self.N = np.sum(self.valid >= 0)
 
             analize_nans(self.out_keys, self.YT, self.valid)
@@ -598,8 +609,7 @@ class BaseIFInterpolator:
         which = np.isnan(np.sum(X, axis=1))
         valid[which] = -1
         print(f"Discarded {np.sum(which)} binaries with nans in input values.")
-
-        for i, flag in enumerate(self.interp_classes):
+        for i, flag in enumerate(self.valid_classes):
             valid[ic == flag] = i + 1
 
         if(self.interp_in_q):   # if HMS-HMS grid, take out q = 1
@@ -1003,12 +1013,16 @@ class BaseIFInterpolator:
             if any(wnan[self.valid > 0]):
                 k1r = KNeighborsRegressor(n_neighbors=1)
                 wT = (~wnan) & (self.valid > 0)
-                xs = MatrixScaler(self._bestInScaling(ic)[1],
-                                  self.XT[self.valid >= 0, :])
-                k1r.fit(xs.normalize(self.XT[wT, :]), self.YT[wT, i])
-                wt = wnan & (self.valid > 0)
-                self.YT[wt, i] = k1r.predict(xs.normalize(self.XT[wt, :]))
-
+                if wT.any():
+                    xs = MatrixScaler(self._bestInScaling(ic)[1],
+                                      self.XT[self.valid >= 0, :])
+                    k1r.fit(xs.normalize(self.XT[wT, :]), self.YT[wT, i])
+                    wt = wnan & (self.valid > 0)
+                    self.YT[wt, i] = k1r.predict(xs.normalize(self.XT[wt, :]))
+                else:
+                    wt = wnan & (self.valid > 0)
+                    self.YT[wt, i] = 0.0
+                    self.out_nan_keys.append(self.out_keys[i])
 
 # BASE INTERPOLATORS
 
@@ -1155,8 +1169,10 @@ class LinInterpolator(Interpolator):
             nearest_neighbor = np.sum(np.square(neighbors - max_distance_point), axis = 1)
             nearest_neighbor = nearest_neighbor.argsort()[0]
 
-            warnings.warn(f"1NN interpolation used for {np.sum(wnan)} "
-                          f"binaries out of hull. Parameter-wise distance (Unnormalized) for point with maximum out-of-hull euclidian distance (Normalized): {np.abs(neighbors[nearest_neighbor] - max_distance_point[0])}")
+            Pwarn(f"1NN interpolation used for {np.sum(wnan)} "
+                f"binaries out of hull. Parameter-wise distance (Unnormalized) for point with"
+                f" maximum out-of-hull euclidian distance (Normalized): {np.abs(neighbors[nearest_neighbor] - max_distance_point[0])}", 
+                "InterpolationWarning")
         return Ypred
 
 
@@ -1416,6 +1432,9 @@ class KNNClassifier(Classifier):
 
             n_opt = np.argmax(acc) + 1
 
+            if n_opt < 3: # k must be at least 3
+                n_opt = 3
+
         self.train(XT, yT, K=n_opt)
 
 
@@ -1451,7 +1470,9 @@ class Scaler:
                 inds = np.where(klass == c)[0]
                 c = None if c == "None" else c
 
-                if c not in self.scaler.keys(): # if class not in classes to interpolate we ignore
+                if c not in self.scaler.keys():
+                    Pwarn(f"normalization was skipped during interpolation: c={c}, inds={inds}", 
+                                  "InterpolationWarning")
                     continue
 
                 normalized[inds] = self.scaler[c].normalize(X[inds])
@@ -1473,7 +1494,9 @@ class Scaler:
                 inds = np.where(klass == c)[0]
                 c = None if c == "None" else c
 
-                if c not in self.scaler.keys(): # if class not in classes to interpolate we ignore
+                if c not in self.scaler.keys():
+                    Pwarn(f"de-normalization was skipped during interpolation: c={c}, inds={inds}",
+                                  "InterpolationWarning")
                     continue
                 normalized[inds] = self.scaler[c].denormalize(Xn[inds])
 
