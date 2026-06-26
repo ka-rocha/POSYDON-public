@@ -108,6 +108,10 @@ The core loop state machine:
 - `constants.py`: physical constants and unit conversions
 - `data_download.py`: Zenodo dataset downloads
 
+## Version and Science Change Notes
+
+**[`docs/SCIENCE_CHANGES.md`](docs/SCIENCE_CHANGES.md)** documents code changes between versions that can shift science results, with enough detail to understand *why* outputs may differ. Covers: natal kick prescription refactor, `step_merged` attribute overhaul, DCO inspiral timing fixes, detached step interpolator rewrite, Moe+DiStefano period distribution fix, and population weighting changes.
+
 ## Tutorial Notebooks
 
 Working code examples are in `docs/_source/tutorials-examples/`. See **[`docs/NOTEBOOKS.md`](docs/NOTEBOOKS.md)** for a detailed description of each notebook, its science case, and the key code patterns it demonstrates.
